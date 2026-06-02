@@ -12,6 +12,11 @@
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
+    <!-- AutoCAD 托管程序集所在目录：可用环境变量或 msbuild /p:AutoCADPath=DIR 覆盖；
+         默认指向本机 AutoCAD 2023 安装路径。换版本 / 换机器时无需改动本文件。
+         用 ProgramW6432 而非 ProgramFiles：32 位的 MSBuild 进程里 ProgramFiles 会指向
+         "Program Files (x86)"，而 AutoCAD 是 64 位、装在 "Program Files"。 -->
+    <AutoCADPath Condition=" '$(AutoCADPath)' == '' ">$(ProgramW6432)\Autodesk\AutoCAD 2023\</AutoCADPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -32,15 +37,15 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="accoremgd">
-      <HintPath>C:\Program Files\Autodesk\AutoCAD 2023\accoremgd.dll</HintPath>
+      <HintPath>$(AutoCADPath)accoremgd.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="acdbmgd">
-      <HintPath>C:\Program Files\Autodesk\AutoCAD 2023\acdbmgd.dll</HintPath>
+      <HintPath>$(AutoCADPath)acdbmgd.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="acmgd">
-      <HintPath>C:\Program Files\Autodesk\AutoCAD 2023\acmgd.dll</HintPath>
+      <HintPath>$(AutoCADPath)acmgd.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="System" />

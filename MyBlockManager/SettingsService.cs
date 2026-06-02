@@ -1,6 +1,8 @@
 ﻿// SettingsService.cs
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Windows.Forms;
 // 为了使用JavaScriptSerializer，需要添加对 System.Web.Extensions 的引用
 // 在“引用”->“添加引用”->“程序集”中找到它
 using System.Web.Script.Serialization;
@@ -43,7 +45,14 @@ namespace MyBlockManager
             {
                 string json = File.ReadAllText(_settingsFilePath);
                 var serializer = new JavaScriptSerializer();
-                return serializer.Deserialize<AppSettings>(json);
+                // 反序列化结果可能为 null（如文件内容为 "null"），或 LibraryPaths 字段为 null，
+                // 这里统一兜底，避免调用方出现 NullReferenceException
+                var settings = serializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+                if (settings.LibraryPaths == null)
+                {
+                    settings.LibraryPaths = new List<string>();
+                }
+                return settings;
             }
             catch (Exception)
             {
@@ -65,8 +74,13 @@ namespace MyBlockManager
             }
             catch (Exception ex)
             {
-                // 可以添加错误日志记录
                 System.Diagnostics.Debug.WriteLine("保存设置失败: " + ex.Message);
+                // 不再静默失败：提示用户设置未能保存
+                MessageBox.Show(
+                    "Failed to save settings: " + ex.Message,
+                    "MyBlockManager",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
             }
         }
     }

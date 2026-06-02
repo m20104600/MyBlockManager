@@ -135,25 +135,34 @@ namespace MyBlockManager
             RefreshContent();
         }
 
-        private void ScanAllBlockFiles()
+        private async void ScanAllBlockFiles()
         {
-            _allBlockFiles.Clear();
-            foreach (var path in _settings.LibraryPaths)
+            // 复制一份路径快照供后台线程使用，避免与 UI 线程共享可变集合
+            var pathsSnapshot = _settings.LibraryPaths.ToList();
+
+            // 在后台线程递归扫描，避免大目录 / 网络盘扫描时卡死 UI
+            List<string> files = await Task.Run(() => ScanDwgFiles(pathsSnapshot));
+
+            _allBlockFiles = files;
+            FilterAndDisplayBlocks();
+        }
+
+        private static List<string> ScanDwgFiles(List<string> paths)
+        {
+            var result = new List<string>();
+            foreach (var path in paths)
             {
-                if (Directory.Exists(path))
+                if (!Directory.Exists(path)) continue;
+                try
                 {
-                    try
-                    {
-                        var files = Directory.GetFiles(path, "*.dwg", SearchOption.AllDirectories);
-                        _allBlockFiles.AddRange(files);
-                    }
-                    catch (System.Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Failed to scan folder {path}: {ex.Message}");
-                    }
+                    result.AddRange(Directory.GetFiles(path, "*.dwg", SearchOption.AllDirectories));
+                }
+                catch (System.Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to scan folder {path}: {ex.Message}");
                 }
             }
-            FilterAndDisplayBlocks();
+            return result;
         }
 
         private void FilterAndDisplayBlocks()
@@ -180,10 +189,27 @@ namespace MyBlockManager
 
         private async void ListBoxBlocks_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (listBoxBlocks.SelectedItem is BlockListItem selectedItem)
+            if (!(listBoxBlocks.SelectedItem is BlockListItem selectedItem))
+                return;
+
+            string requestedPath = selectedItem.FullPath;
+
+            // 释放上一张预览图，避免 GDI / 内存泄漏，并先清空显示
+            var previous = pictureBoxPreview.Image;
+            pictureBoxPreview.Image = null;
+            previous?.Dispose();
+
+            Bitmap thumbnail = await GetThumbnailAsync(selectedPath: requestedPath);
+
+            // 异步竞态防护：await 期间用户可能已切换到其它项；
+            // 仅当当前选中项仍是本次请求项时才显示，否则丢弃本次结果（同样要释放）
+            if (listBoxBlocks.SelectedItem is BlockListItem current && current.FullPath == requestedPath)
             {
-                pictureBoxPreview.Image = null;
-                pictureBoxPreview.Image = await GetThumbnailAsync(selectedPath: selectedItem.FullPath);
+                pictureBoxPreview.Image = thumbnail;
+            }
+            else
+            {
+                thumbnail?.Dispose();
             }
         }
 
@@ -240,6 +266,7 @@ namespace MyBlockManager
                         else
                         {
                             blockId = bt[blockName];
+                            ed.WriteMessage($"\nNote: a block named '{blockName}' already exists in this drawing; inserting the existing definition (it may differ from the selected file).");
                         }
 
                         if (blockId.IsNull)
@@ -300,6 +327,64 @@ namespace MyBlockManager
                 if (IsAcadDarkTheme())
                 {
                     ApplyDarkTheme(control);
+                }
+                else
+                {
+                    // 切回亮色主题时，还原暗色主题施加的自定义样式（尤其是 ListBox 的所有者绘制）
+                    ApplyLightTheme(control);
+                }
+            }
+
+            private static void ApplyLightTheme(Control control)
+            {
+                // 还原为系统默认外观
+                control.BackColor = SystemColors.Control;
+                control.ForeColor = SystemColors.ControlText;
+
+                if (control is TextBox txt)
+                {
+                    txt.BackColor = SystemColors.Window;
+                    txt.ForeColor = SystemColors.WindowText;
+                    txt.BorderStyle = BorderStyle.Fixed3D;
+                }
+                else if (control is ComboBox)
+                {
+                    control.BackColor = SystemColors.Window;
+                    control.ForeColor = SystemColors.WindowText;
+                }
+                else if (control is Button btn)
+                {
+                    btn.FlatStyle = FlatStyle.Standard;
+                    btn.UseVisualStyleBackColor = true;
+                    btn.BackColor = SystemColors.Control;
+                    btn.ForeColor = SystemColors.ControlText;
+                }
+                else if (control is ListBox lst)
+                {
+                    // 移除暗色主题的所有者绘制，恢复系统默认绘制
+                    lst.DrawItem -= ListBox_DrawItem;
+                    lst.DrawMode = DrawMode.Normal;
+                    lst.BackColor = SystemColors.Window;
+                    lst.ForeColor = SystemColors.WindowText;
+                    lst.BorderStyle = BorderStyle.Fixed3D;
+                }
+                else if (control is PictureBox pic)
+                {
+                    pic.BackColor = SystemColors.ControlLight;
+                }
+                else if (control is Label)
+                {
+                    control.BackColor = Color.Transparent;
+                }
+                else if (control is Panel || control is TableLayoutPanel)
+                {
+                    control.BackColor = SystemColors.Control;
+                }
+
+                // 递归还原所有子控件
+                foreach (Control child in control.Controls)
+                {
+                    ApplyLightTheme(child);
                 }
             }
 
