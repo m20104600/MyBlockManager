@@ -1,0 +1,25 @@
+## .NET / Visual Studio 构建输出
+[Bb]in/
+[Oo]bj/
+
+## Visual Studio 工作目录与用户文件
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Rider / ReSharper
+.idea/
+_ReSharper*/
+*.DotSettings.user
+
+## 项目特定：压缩包与旧备份副本
+*.rar
+*.zip
+备份/
+
+## 系统文件
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
