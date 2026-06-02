@@ -153,16 +153,38 @@ namespace MyBlockManager
             foreach (var path in paths)
             {
                 if (!Directory.Exists(path)) continue;
-                try
-                {
-                    result.AddRange(Directory.GetFiles(path, "*.dwg", SearchOption.AllDirectories));
-                }
-                catch (System.Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Failed to scan folder {path}: {ex.Message}");
-                }
+                ScanDirectory(path, result);
             }
             return result;
+        }
+
+        // 逐目录递归枚举：某个子目录无权限 / 路径过长时仅跳过它，不影响其余结果
+        private static void ScanDirectory(string dir, List<string> result)
+        {
+            try
+            {
+                result.AddRange(Directory.GetFiles(dir, "*.dwg"));
+            }
+            catch (System.Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to list files in {dir}: {ex.Message}");
+            }
+
+            string[] subDirs;
+            try
+            {
+                subDirs = Directory.GetDirectories(dir);
+            }
+            catch (System.Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to list subfolders in {dir}: {ex.Message}");
+                return;
+            }
+
+            foreach (var sub in subDirs)
+            {
+                ScanDirectory(sub, result);
+            }
         }
 
         private void FilterAndDisplayBlocks()
@@ -170,10 +192,11 @@ namespace MyBlockManager
             listBoxBlocks.BeginUpdate();
             listBoxBlocks.Items.Clear();
 
-            string keyword = txtSearch.Text.ToLower().Trim();
+            string keyword = txtSearch.Text.Trim();
 
             var filteredList = _allBlockFiles
-                .Where(f => Path.GetFileNameWithoutExtension(f).ToLower().Contains(keyword))
+                .Where(f => Path.GetFileNameWithoutExtension(f)
+                    .IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
                 .Select(f => new BlockListItem { FullPath = f, DisplayName = Path.GetFileName(f) })
                 .ToList();
 
