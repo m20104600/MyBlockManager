@@ -1,3 +1,4 @@
+[![GitHub Roast 评分徽章](https://githubroast.icu/api/badge/m20104600)](https://githubroast.icu/u/m20104600)
 # MyBlockManager
 
 一个 AutoCAD 2023 图块库管理插件：在停靠面板中浏览、搜索、预览并一键插入图块库中的图块（`.dwg`）。
